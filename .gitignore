@@ -1,0 +1,41 @@
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Ultralytics training outputs (regeneratable)
+runs/
+
+# Local large binaries (keep placeholders in repo via README)
+data/videos/
+*.mp4
+*.avi
+*.mkv
+
+# Trained weights (large; copy locally or use release assets)
+*.pt
+
+# Generated analytics (reproducible from behavior_history.py)
+data/classroom_behavior_history.csv
+data/classroom_behavior_summary.csv
+
+# OS
+Thumbs.db
+.Desktop.ini
+.DS_Store
