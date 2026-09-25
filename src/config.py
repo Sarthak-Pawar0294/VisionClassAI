@@ -177,12 +177,15 @@ def get_settings(
         ),
         behavior_conf=float(os.environ.get("VISIONCLASS_BEHAVIOR_CONF", "0.20")),
         person_conf=float(os.environ.get("VISIONCLASS_PERSON_CONF", "0.30")),
-        inference_imgsz=int(os.environ.get("VISIONCLASS_INFERENCE_IMGSZ", "1280")),
+        inference_imgsz=int(os.environ.get("VISIONCLASS_INFERENCE_IMGSZ", "960")),
         train_imgsz=int(os.environ.get("VISIONCLASS_TRAIN_IMGSZ", "640")),
         train_epochs=int(os.environ.get("VISIONCLASS_TRAIN_EPOCHS", "10")),
         train_batch=int(os.environ.get("VISIONCLASS_TRAIN_BATCH", "8")),
         eval_batch=int(os.environ.get("VISIONCLASS_EVAL_BATCH", "8")),
-        tracker=os.environ.get("VISIONCLASS_TRACKER", "bytetrack.yaml"),
+        tracker=os.environ.get(
+            "VISIONCLASS_TRACKER",
+            str(root / "config" / "bytetrack.yaml")
+        ),
         train_workers=int(os.environ.get("VISIONCLASS_TRAIN_WORKERS", "2")),
         eval_workers=int(os.environ.get("VISIONCLASS_EVAL_WORKERS", "0")),
         device=resolve_device(device_spec),

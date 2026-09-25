@@ -1,6 +1,7 @@
 """Tests for configuration helpers (no GPU required)."""
 
 import os
+from pathlib import Path
 
 from src.config import PROJECT_ROOT, get_settings, resolve_device
 
@@ -99,4 +100,31 @@ def test_no_hardcoded_windows_paths_in_settings():
                 f"Default path is not under PROJECT_ROOT: {p}\n"
                 f"PROJECT_ROOT: {root}"
             )
+
+
+def test_inference_imgsz_default_is_960():
+    """Verify that inference_imgsz is set to the validated 960 resolution."""
+    settings = get_settings()
+    assert settings.inference_imgsz == 960
+
+
+def test_project_local_tracker_config():
+    """Verify that the tracker defaults to the project-local config/bytetrack.yaml."""
+    settings = get_settings()
+    tracker_path = Path(settings.tracker)
+    assert tracker_path.is_file(), f"Tracker config missing: {tracker_path}"
+    assert tracker_path.parent.name == "config"
+    assert tracker_path.name == "bytetrack.yaml"
+
+
+def test_tracker_config_has_buffer_60():
+    """Verify that the local tracker config specifies track_buffer: 60."""
+    import yaml
+    settings = get_settings()
+    with open(settings.tracker, "r", encoding="utf-8") as f:
+        tracker_cfg = yaml.safe_load(f)
+    
+    assert tracker_cfg.get("track_buffer") == 60, "track_buffer must be exactly 60"
+    assert tracker_cfg.get("tracker_type") == "bytetrack"
+
 

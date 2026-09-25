@@ -1,0 +1,10 @@
+# ByteTrack tracker defaults for mode="track"
+# Customized for VisionClass behavior tracking
+
+tracker_type: bytetrack # (str) Tracker backend: bytetrack
+track_high_thresh: 0.25 # (float) First-stage match threshold
+track_low_thresh: 0.1 # (float) Second-stage threshold for low-score matches
+new_track_thresh: 0.25 # (float) Start a new track if no match >= this
+track_buffer: 60 # (int) Frames to keep lost tracks alive (3.0s at 20fps)
+match_thresh: 0.8 # (float) Association similarity threshold (IoU/cost)
+fuse_score: True # (bool) Fuse detection score with motion/IoU for matching
