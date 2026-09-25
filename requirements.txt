@@ -1,0 +1,45 @@
+# VisionClass — Python dependencies
+#
+# Install into a Python 3.12 virtual environment:
+#   python -m venv venv
+#   venv\Scripts\activate          # Windows
+#   pip install -r requirements.txt
+#
+# PyTorch is installed with CUDA 12.8 support.
+# For CPU-only machines replace the torch/torchvision/torchaudio lines with:
+#   pip install torch torchvision torchaudio
+# and remove the +cu128 suffix below.
+
+# ── Core CV / ML ────────────────────────────────────────────────────────────
+# Note: the venv has opencv-contrib-python (superset of opencv-python).
+# Use opencv-contrib-python so mediapipe and ultralytics both resolve to one package.
+opencv-contrib-python==4.11.0.86
+
+# YOLO11 object detection / tracking
+ultralytics==8.4.160
+
+# PyTorch (CUDA 12.8 build — change suffix for your GPU/CPU)
+torch==2.11.0+cu128
+torchvision==0.26.0+cu128
+torchaudio==2.11.0+cu128
+
+# ── Optional / MediaPipe branch ─────────────────────────────────────────────
+# Used only by feature_extraction.py and src/features.py (not the YOLO pipeline).
+# Safe to omit if the MediaPipe branch is removed later.
+mediapipe==0.10.21
+
+# ── Numerical / utilities ───────────────────────────────────────────────────
+numpy==1.26.4
+
+# lap: required by ultralytics ByteTrack
+lap==0.5.13
+
+# ── Testing ─────────────────────────────────────────────────────────────────
+# pytest is not in the current venv; install it separately for development.
+# Minimum version constraint only — no upper bound to avoid churn.
+pytest>=8.0
+
+# ── Notes ───────────────────────────────────────────────────────────────────
+# pandas: NOT used by any VisionClass source file (CSV written with stdlib csv).
+# polars: present in venv but NOT used by VisionClass.
+# scipy, matplotlib, pillow: pulled in transitively by ultralytics/mediapipe.

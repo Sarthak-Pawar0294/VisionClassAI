@@ -16,10 +16,10 @@ def main(device_spec: str | None = None) -> None:
 
     model = YOLO(str(settings.behavior_model))
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(settings.webcam_index)
 
     if not cap.isOpened():
-        print("ERROR: Could not open webcam.")
+        print(f"ERROR: Could not open webcam (index {settings.webcam_index}).")
         return
 
     print("VisionClass behavior detection")

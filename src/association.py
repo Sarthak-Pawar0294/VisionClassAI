@@ -5,14 +5,28 @@ Association rule (single shared implementation)
 -----------------------------------------------
 For each behavior detection bounding box:
 
-1. Compute the behavior box center.
-2. **Candidates** are tracked persons whose box contains that center point.
-3. If there are no candidates, the detection is not assigned to any person.
-4. If there is one candidate, that person is selected.
-5. If there are multiple candidates (overlapping person boxes), select the
+1. **Candidates** are tracked persons whose bounding box has any pixel-level
+   overlap with the behavior box (``intersection_area > 0``).
+
+   *Why overlap instead of center-point containment?*
+
+   The previous rule required the behavior-box center to lie inside the person
+   box.  This silently discards detections for behaviors whose bounding box
+   extends outside the person box — most critically:
+
+   - ``handrise``: the raised-arm box extends **above** the student's head, so
+     its center is above the person box and containment returns False.
+   - Any behavior annotated on a body part at the frame edge or occluded area.
+
+   Using intersection area (any overlap > 0) captures these cases while the
+   IoU-based sorting step still selects the *best* matching person.
+
+2. If there are no candidates, the detection is not assigned to any person.
+3. If there is one candidate, that person is selected.
+4. If there are multiple candidates (overlapping person boxes), select the
    person with the **highest IoU** between the behavior box and the person box.
    This prefers the strongest spatial overlap rather than list order.
-6. Tie-break: smaller person box area, then lower tracker id (deterministic).
+5. Tie-break: smaller person box area, then lower tracker id (deterministic).
 
 After a person is chosen for a detection, the person's label is updated only
 if the detection confidence is **greater than** the confidence already stored
@@ -66,12 +80,15 @@ def find_student_for_behavior(
 ) -> Mapping[str, Any] | None:
     """
     Return the student dict that best matches this behavior detection, or None.
+
+    A student is a candidate if their person bounding box overlaps with the
+    behavior box by any non-zero area.  The best candidate is chosen by maximum
+    IoU; ties broken by smaller person-box area, then lower tracker ID.
     """
-    center = box_center(behavior_box)
     candidates = [
         student
         for student in students
-        if point_inside_box(center, student["box"])
+        if intersection_area(behavior_box, student["box"]) > 0
     ]
     if not candidates:
         return None

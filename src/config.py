@@ -44,6 +44,39 @@ def _path_from_env(env_key: str, default: Path) -> Path:
     return default
 
 
+def _discover_behavior_model(root: Path) -> Path:
+    """
+    Auto-discover the most recently trained behavior model under runs/.
+
+    Search rule:
+      1. Walk every directory matching runs/**/weights/best.pt (any depth).
+      2. Keep only those that actually exist on disk.
+      3. Sort by directory modification time (newest first).
+      4. Return the path of the newest valid best.pt.
+
+    If no valid model is found, return a sentinel Path that does NOT exist so
+    callers can detect the missing-model case and print a clear error message.
+
+    Override at any time via the VISIONCLASS_BEHAVIOR_MODEL environment variable.
+    """
+    runs_dir = root / "runs"
+    candidates: list[tuple[float, Path]] = []
+
+    if runs_dir.is_dir():
+        for best_pt in runs_dir.rglob("weights/best.pt"):
+            if best_pt.is_file():
+                mtime = best_pt.stat().st_mtime
+                candidates.append((mtime, best_pt))
+
+    if candidates:
+        # Newest (highest mtime) first
+        candidates.sort(key=lambda t: t[0], reverse=True)
+        return candidates[0][1]
+
+    # Sentinel: no trained model found
+    return root / "runs" / "detect" / "runs" / "visionclass_behavior" / "weights" / "best.pt"
+
+
 @dataclass(frozen=True)
 class Settings:
     project_root: Path
@@ -75,6 +108,7 @@ class Settings:
     eval_workers: int
 
     device: DeviceSpec
+    webcam_index: int
 
     train_project: str
     train_name: str
@@ -90,20 +124,19 @@ def get_settings(
 ) -> Settings:
     root = PROJECT_ROOT
 
+    # Resolve behavior_model: explicit arg > env var > auto-discovery
+    if behavior_model:
+        resolved_behavior_model = Path(behavior_model).resolve()
+    else:
+        env_model = os.environ.get("VISIONCLASS_BEHAVIOR_MODEL")
+        if env_model:
+            resolved_behavior_model = Path(env_model).expanduser().resolve()
+        else:
+            resolved_behavior_model = _discover_behavior_model(root)
+
     return Settings(
         project_root=root,
-        behavior_model=Path(behavior_model).resolve()
-        if behavior_model
-        else _path_from_env(
-            "VISIONCLASS_BEHAVIOR_MODEL",
-            root
-            / "runs"
-            / "detect"
-            / "runs"
-            / "visionclass_behavior-3"
-            / "weights"
-            / "best.pt",
-        ),
+        behavior_model=resolved_behavior_model,
         person_model=_path_from_env(
             "VISIONCLASS_PERSON_MODEL",
             root / "yolo11n.pt",
@@ -153,6 +186,7 @@ def get_settings(
         train_workers=int(os.environ.get("VISIONCLASS_TRAIN_WORKERS", "2")),
         eval_workers=int(os.environ.get("VISIONCLASS_EVAL_WORKERS", "0")),
         device=resolve_device(device_spec),
+        webcam_index=int(os.environ.get("VISIONCLASS_WEBCAM_INDEX", "0")),
         train_project=os.environ.get("VISIONCLASS_TRAIN_PROJECT", "runs"),
         train_name=os.environ.get("VISIONCLASS_TRAIN_NAME", "visionclass_behavior"),
         eval_project=os.environ.get("VISIONCLASS_EVAL_PROJECT", "runs"),

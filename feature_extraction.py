@@ -1,3 +1,16 @@
+# EXPERIMENTAL — MediaPipe branch (not connected to the YOLO pipeline).
+#
+# Standalone webcam demo that extracts facial and body posture features using
+# Google MediaPipe (FaceMesh + Pose).  Runs independently; no imports from src/.
+#
+# Status: this file pre-dates the src/ refactor and has not been integrated.
+# The extracted features (EAR, head pose, body lean) are not consumed by any
+# YOLO-based inference script.
+#
+# Future decision needed: integrate into the YOLO pipeline, or remove.
+# Do NOT delete without reviewing src/features.py (the extracted helper module).
+#
+# Kept for reference.  Do not import from other modules.
 import cv2
 import mediapipe as mp
 import numpy as np

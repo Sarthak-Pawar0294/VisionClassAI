@@ -1,3 +1,10 @@
+# LEGACY DEMO — MediaPipe face + pose landmark visualisation.
+#
+# Standalone webcam script that draws FaceMesh and Pose landmarks on live video.
+# NOT a pytest test file despite the name.  Not part of the src/ pipeline.
+#
+# Superseded by: feature_extraction.py (more complete feature extraction demo).
+# Kept for reference.  Do not import from other modules.
 import cv2
 import mediapipe as mp
 

@@ -1,3 +1,14 @@
+# LEGACY PROTOTYPE — do not use in production.
+#
+# This script was the original standalone person-detection demo written before
+# the src/ package existed.  It is NOT part of the refactored pipeline and is
+# NOT imported by any other module.
+#
+# Superseded by:
+#   src/realtime_behavior.py  — webcam inference with central configuration
+#   src/classroom_tracking.py — person tracking + behavior association
+#
+# Kept for reference only.  Do not modify.
 from ultralytics import YOLO
 import cv2
 import torch

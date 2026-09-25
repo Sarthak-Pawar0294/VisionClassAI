@@ -1,3 +1,4 @@
+import csv
 import sys
 from pathlib import Path
 
@@ -8,6 +9,68 @@ if str(_ROOT) not in sys.path:
 from ultralytics import YOLO
 
 from src.config import get_settings
+
+
+def _save_per_class_metrics(results: object, model: object, save_dir: Path) -> None:
+    """
+    Extract per-class AP metrics from a YOLO val() result and write to CSV.
+
+    Columns: class_id, class_name, precision, recall, ap50, ap50_95
+
+    Falls back gracefully if the Ultralytics API does not expose per-class
+    data for this version.
+    """
+    try:
+        box = results.box
+        # ap_class_index: list of int class indices that have AP data
+        # ap50, ap:       per-class AP@0.5 and AP@0.5:0.95 arrays (parallel to ap_class_index)
+        class_indices = box.ap_class_index.tolist()
+        ap50_per_class = box.ap50.tolist()
+        ap_per_class = box.ap.tolist()
+
+        # p and r are per-class arrays in the same order
+        p_per_class = box.p.tolist() if hasattr(box, "p") else [None] * len(class_indices)
+        r_per_class = box.r.tolist() if hasattr(box, "r") else [None] * len(class_indices)
+
+        rows = []
+        for i, class_id in enumerate(class_indices):
+            rows.append(
+                {
+                    "class_id": class_id,
+                    "class_name": model.names.get(class_id, f"class_{class_id}"),
+                    "precision": round(p_per_class[i], 6) if p_per_class[i] is not None else "",
+                    "recall": round(r_per_class[i], 6) if r_per_class[i] is not None else "",
+                    "ap50": round(ap50_per_class[i], 6),
+                    "ap50_95": round(ap_per_class[i], 6),
+                }
+            )
+
+        csv_path = save_dir / "per_class_metrics.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=["class_id", "class_name", "precision", "recall", "ap50", "ap50_95"],
+            )
+            writer.writeheader()
+            writer.writerows(rows)
+
+        print(f"\nPer-class metrics saved → {csv_path}")
+        print()
+        print(f"  {'Class':<30} {'P':>8} {'R':>8} {'AP50':>8} {'AP50-95':>9}")
+        print("  " + "-" * 68)
+        for row in rows:
+            print(
+                f"  {row['class_name']:<30} "
+                f"{str(row['precision']):>8} "
+                f"{str(row['recall']):>8} "
+                f"{str(row['ap50']):>8} "
+                f"{str(row['ap50_95']):>9}"
+            )
+
+    except AttributeError as e:
+        print(f"\nWARNING: Could not extract per-class metrics ({e}).")
+        print("  Ultralytics API may differ for this version.")
+        print("  Overall metrics are still printed above.")
 
 
 def main(
@@ -24,8 +87,8 @@ def main(
     print("=" * 60)
     print("VisionClass - Model Evaluation")
     print("=" * 60)
-    print(f"Device: {settings.device}")
-    print(f"Model: {settings.behavior_model}")
+    print(f"Device:  {settings.device}")
+    print(f"Model:   {settings.behavior_model}")
     print(f"Dataset: {settings.dataset_yaml}")
 
     if not settings.behavior_model.is_file():
@@ -60,6 +123,15 @@ def main(
     print(f"mAP50-95:  {results.box.map:.4f}")
     print(f"Precision: {results.box.mp:.4f}")
     print(f"Recall:    {results.box.mr:.4f}")
+
+    # Save per-class metrics alongside the plots in the eval run directory
+    try:
+        save_dir = Path(results.save_dir)
+    except AttributeError:
+        save_dir = Path(settings.eval_project) / settings.eval_name
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    _save_per_class_metrics(results, model, save_dir)
 
     print("=" * 60)
 

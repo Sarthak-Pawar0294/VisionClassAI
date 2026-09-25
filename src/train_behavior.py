@@ -23,8 +23,8 @@ def main(
 
     print(f"PyTorch CUDA available: {torch.cuda.is_available()}")
 
-    if torch.cuda.is_available():
-        print(f"GPU: {torch.cuda.get_device_name(0)}")
+    if torch.cuda.is_available() and isinstance(settings.device, int):
+        print(f"GPU: {torch.cuda.get_device_name(settings.device)}")
 
     print(f"Device: {settings.device}")
     print(f"Dataset: {settings.dataset_yaml}")
