@@ -36,12 +36,15 @@ def test_webcam_index_from_env(monkeypatch):
     assert settings.webcam_index == 2
 
 
-def test_dataset_yaml_defaults_to_canonical_dataset():
+def test_dataset_yaml_defaults_to_canonical_dataset(monkeypatch):
+    monkeypatch.delenv("VISIONCLASS_DATASET_YAML", raising=False)
+
     settings = get_settings()
-    assert settings.dataset_yaml == (
-        PROJECT_ROOT / "datasets" / "student_classroom_behavior" / "data.yaml"
-    )
-    assert settings.dataset_yaml.is_file()
+    canonical_path = PROJECT_ROOT / "datasets" / "student_classroom_behavior" / "data.yaml"
+
+    assert settings.dataset_yaml == canonical_path
+    assert settings.dataset_yaml.is_absolute()
+    assert settings.dataset_yaml == canonical_path.resolve()
 
 
 def test_dataset_yaml_from_env(monkeypatch, tmp_path):
@@ -51,13 +54,28 @@ def test_dataset_yaml_from_env(monkeypatch, tmp_path):
     assert settings.dataset_yaml == dataset_yaml.resolve()
 
 
-def test_behavior_model_discovery_finds_existing_best_pt():
-    """Auto-discovery must resolve to a best.pt that actually exists on disk."""
+def test_behavior_model_discovery_finds_newest_existing_best_pt(monkeypatch, tmp_path):
+    """Auto-discovery selects the newest existing runs/**/weights/best.pt."""
+    import src.config as config
+
+    monkeypatch.delenv("VISIONCLASS_BEHAVIOR_MODEL", raising=False)
+    monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
+
+    older = tmp_path / "runs" / "phase-a" / "weights" / "best.pt"
+    newer = tmp_path / "runs" / "nested" / "phase-b" / "weights" / "best.pt"
+    ignored = tmp_path / "runs" / "phase-c" / "best.pt"
+    for candidate in (older, newer, ignored):
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        candidate.write_bytes(b"temporary test fixture; not model weights")
+
+    os.utime(older, (100, 100))
+    os.utime(newer, (200, 200))
+    os.utime(ignored, (300, 300))
+
     settings = get_settings()
-    assert settings.behavior_model.is_file(), (
-        f"Auto-discovered behavior_model does not exist: {settings.behavior_model}\n"
-        "Set VISIONCLASS_BEHAVIOR_MODEL=<path/to/best.pt> or re-train the model."
-    )
+
+    assert settings.behavior_model == newer.resolve()
+    assert settings.behavior_model.is_file()
 
 
 def test_explicit_behavior_model_overrides_discovery(tmp_path):

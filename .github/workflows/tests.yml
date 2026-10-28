@@ -1,0 +1,63 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install FFmpeg with an H.264 encoder
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
+          ffmpeg -hide_banner -encoders | grep -Eq '^[[:space:]]*V[^[:space:]]*[[:space:]]+(libx264|libopenh264)[[:space:]]'
+
+      - name: Install CPU PyTorch
+        run: >-
+          python -m pip install
+          torch==2.11.0+cpu torchvision==0.26.0+cpu torchaudio==2.11.0+cpu
+          --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install project dependencies
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          requirements = Path("requirements.txt").read_text(encoding="utf-8")
+          cuda_pin_pattern = re.compile(
+              r"^(torch|torchvision|torchaudio)==[^#]*\+cu128(?:\s*#.*)?$"
+          )
+          lines = requirements.splitlines()
+          removed_pins = [line for line in lines if cuda_pin_pattern.match(line)]
+          removed_packages = {line.split("==", 1)[0] for line in removed_pins}
+          expected_packages = {"torch", "torchvision", "torchaudio"}
+          if len(removed_pins) != 3 or removed_packages != expected_packages:
+              raise SystemExit(
+                  "Expected exactly one +cu128 pin for torch, torchvision, and torchaudio; "
+                  f"found {removed_pins!r}"
+              )
+          without_cuda_pins = "\n".join(
+              line for line in lines if not cuda_pin_pattern.match(line)
+          ) + "\n"
+          target = Path(os.environ["RUNNER_TEMP"]) / "visionclass-requirements-ci.txt"
+          target.write_text(without_cuda_pins, encoding="utf-8")
+          PY
+          python -m pip install -r "$RUNNER_TEMP/visionclass-requirements-ci.txt"
+
+      - name: Run tests
+        run: python -B -m pytest -p no:cacheprovider
