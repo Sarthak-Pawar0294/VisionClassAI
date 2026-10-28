@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0d13">
+  <title>{% block title %}VisionClass{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="{{ url_for('live_page') }}" aria-label="VisionClass home">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span><strong>VisionClass</strong><small>LOCAL BEHAVIOR ANALYSIS</small></span>
+      </a>
+      <div class="topbar-status"><span class="status-dot" aria-hidden="true"></span><span>Private workspace</span><span class="status-separator">·</span><span>127.0.0.1</span></div>
+      <nav class="primary-nav" aria-label="Main navigation">
+        <a class="{% if active_page == 'live' %}active{% endif %}" href="{{ url_for('live_page') }}" {% if active_page == 'live' %}aria-current="page"{% endif %}>Live</a>
+        <a class="{% if active_page == 'video' %}active{% endif %}" href="{{ url_for('video_page') }}" {% if active_page == 'video' %}aria-current="page"{% endif %}>Video analysis</a>
+        <a class="{% if active_page == 'analytics' %}active{% endif %}" href="{{ url_for('analytics_page') }}" {% if active_page == 'analytics' %}aria-current="page"{% endif %}>Sessions &amp; analytics</a>
+      </nav>
+    </header>
+    <main id="main" class="page-content">
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="footer"><span>VisionClass runs on this computer.</span><span>Behavior labels are model observations, not student identities.</span></footer>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% set active_page = 'live' %}
+{% block title %}Live workspace · VisionClass{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div><p class="eyebrow">LIVE WORKSPACE</p><h1>Classroom overview</h1><p class="muted">Review the live annotated feed and recent model observations. These counts are not student identities or learning outcomes.</p></div>
+  <div class="session-pill" id="job-pill"><span class="status-dot idle" id="job-dot"></span><span id="job-label">Ready to start</span></div>
+</section>
+<div class="live-grid">
+  <section class="panel feed-panel" aria-labelledby="feed-title">
+    <div class="panel-heading"><div><p class="eyebrow">CAMERA</p><h2 id="feed-title">Live annotated feed</h2></div><span class="connection-chip" id="stream-chip">Stream idle</span></div>
+    <div class="feed-frame" id="feed-frame">
+      <img id="live-feed" alt="Live camera frame annotated with behavior detections" hidden>
+      <div class="feed-placeholder" id="feed-placeholder"><span class="camera-icon" aria-hidden="true">◉</span><strong>Camera is not running</strong><span>Start a session to connect to the configured webcam.</span></div>
+      <div class="feed-overlay"><span><i class="live-indicator"></i> LIVE</span><span id="frame-label">No frames yet</span></div>
+    </div>
+    <div class="feed-actions"><div class="button-group"><button class="button button-primary" id="start-button" type="button">Start camera</button><button class="button button-danger" id="stop-button" type="button" disabled>Stop session</button></div><p class="action-note" id="action-message" role="status" aria-live="polite">The existing standalone webcam command remains available.</p></div>
+  </section>
+  <aside class="panel health-panel" aria-labelledby="health-title">
+    <div class="panel-heading"><div><p class="eyebrow">SYSTEM HEALTH</p><h2 id="health-title">Connection status</h2></div><span class="health-icon" aria-hidden="true">⌁</span></div>
+    <dl class="health-list">
+      <div><dt>Web application</dt><dd><span class="status-dot good"></span><span id="server-status">Connected</span></dd></div>
+      <div><dt>Browser stream</dt><dd><span class="status-dot idle" id="stream-dot"></span><span id="stream-status">Waiting for session</span></dd></div>
+      <div><dt>Camera</dt><dd><span class="status-dot idle" id="camera-dot"></span><span id="camera-status">Idle</span></dd></div>
+      <div><dt>Inference</dt><dd><span class="status-dot idle" id="inference-dot"></span><span id="inference-status">Idle</span></dd></div>
+      <div><dt>Latest frame data</dt><dd><span class="status-dot idle" id="freshness-dot"></span><span id="data-freshness">No observations yet</span></dd></div>
+    </dl>
+    <div class="health-message" id="health-message" role="status">Camera and inference errors will appear here with recovery guidance.</div>
+    <div class="session-metrics"><div><span id="session-time-label">Session time</span><strong id="session-duration">00:00</strong></div><div><span id="session-total-label">Frame-level box observations</span><strong id="session-total">—</strong></div></div>
+    <div class="metric-strip"><div><span>Processing rate</span><strong id="fps-value">— <small>FPS</small></strong></div><div><span>Latest confidence</span><strong id="confidence-value">—</strong></div></div>
+  </aside>
+</div>
+<section class="panel behavior-panel" aria-labelledby="behavior-title">
+  <div class="panel-heading"><div><p class="eyebrow">CURRENT FRAME</p><h2 id="behavior-title">Current behavior detections</h2><p class="muted small">Counts are behavior-model boxes in the latest frame. They do not represent tracker records or people.</p></div><span class="connection-chip" id="latest-frame-chip">No frames yet</span></div>
+  <div class="behavior-grid" id="behavior-grid" aria-live="polite"></div>
+</section>
+<section class="panel trend-panel" aria-labelledby="trend-title">
+  <div class="panel-heading trend-heading"><div><p class="eyebrow">RECENT OBSERVATIONS</p><h2 id="trend-title">Behavior over time</h2><p class="muted small">Timestamped sampled frames from this webcam session. No camera imagery is retained for these charts.</p></div>
+    <div class="trend-controls"><label for="trend-window">Time window</label><select id="trend-window"><option value="1">Last minute</option><option value="5">Last 5 minutes</option><option value="10">Last 10 minutes</option></select><button class="button button-secondary" id="chart-pause" type="button" aria-pressed="false">Pause charts</button></div>
+  </div>
+  <p class="chart-state" id="chart-state" role="status" aria-live="polite">Waiting for webcam observations. The chart updates independently of the camera controls.</p>
+  <fieldset class="series-fieldset"><legend>Behavior series</legend><div class="series-toggle-list" id="series-toggle-list"></div></fieldset>
+  <figure class="trend-figure"><svg id="trend-chart" viewBox="0 0 800 300" role="img" aria-label="Sampled-frame behavior box counts over the selected time window" aria-describedby="trend-chart-description" hidden></svg><figcaption id="trend-chart-description" class="muted small">Each plotted point is the box count in one sampled webcam frame, sampled at most once per second. Repeated detections across frames are observations, not unique events or people.</figcaption></figure>
+  <div class="empty-state chart-empty" id="trend-empty"><strong>No observations in this time window</strong><span>Start or continue a camera session to build a recent trend.</span></div>
+  <div class="chart-summary" id="trend-summary" aria-live="polite"></div>
+  <section class="window-distribution" aria-labelledby="distribution-title"><div><h3 id="distribution-title">Observed behavior distribution</h3><p class="muted small" id="distribution-caption">Sampled-frame box totals for the selected time window.</p></div><div class="sample-distribution" id="window-distribution"></div></section>
+</section>
+<section class="panel interpretation-panel" aria-labelledby="interpretation-title"><div class="timeline-mark" aria-hidden="true">i</div><div><h2 id="interpretation-title">How to read these observations</h2><ul class="interpretation-list"><li>These are computer-vision observations, not ground truth. One student may produce repeated boxes across many frames.</li><li>Confidence is the model's detection confidence; it is not a probability of understanding or learning.</li><li>Observed behavior does not measure comprehension, motivation, or learning. Device-use and sleep labels should not be treated as misconduct or disengagement.</li><li>The live feed reports behavior boxes only. Person tracking and unique real-world student identity are unavailable in this live metric stream.</li></ul><a class="text-link" href="{{ url_for('analytics_page') }}">Review video session analytics <span aria-hidden="true">→</span></a></div></section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/live.js') }}" defer></script>{% endblock %}

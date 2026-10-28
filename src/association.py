@@ -150,3 +150,133 @@ def assign_behaviors_to_students(
         if confidence > student["confidence"]:
             student["behavior"] = class_names[int(class_id)]
             student["confidence"] = float(confidence)
+
+
+class BehaviorCache:
+    """
+    Per-student temporal behavior smoother.
+
+    The behavior model fires a detection on only a fraction of tracked
+    students each frame (typically 3–6 detections for 10–15 tracked
+    persons).  Without smoothing, students with no detection in the
+    current frame display "unknown" even if they had a clear label
+    one or two frames ago.
+
+    BehaviorCache keeps the **most-recent** behavior label and
+    confidence for each tracker ID and replays it into the per-frame
+    student records for up to ``max_age`` frames after the last live
+    detection.  Confidence is linearly decayed toward ``decay_floor``
+    as the cached entry ages, signalling that the label is stale.
+
+    Usage (inside the per-frame loop)::
+
+        cache = BehaviorCache(max_age=30)   # once, before the loop
+
+        # ... per frame:
+        students = build_student_records(person_result)
+        assign_behaviors_to_students(students, ...)   # live detections
+        cache.apply(students)                         # fill gaps from cache
+        cache.update(students)                        # store new live hits
+
+    Design constraints
+    ------------------
+    * ``max_age`` is in **frames**, not seconds.  At 25 fps, 30 frames
+      ≈ 1.2 seconds — long enough to bridge typical inter-detection
+      gaps without masking real behavior changes.
+    * Only entries that received a **live** detection this frame are
+      written back to the cache (``update`` step).  Stale entries
+      continue to age and expire on their own.
+    * The cache is unbounded in the number of student IDs it stores,
+      but this is safe because the number of unique tracker IDs in a
+      single classroom video is small (tens to low hundreds).
+    """
+
+    # Sentinel confidence written when replaying a cached label.
+    # Kept above zero so the label is visible but below typical live
+    # detection confidence values (0.2–0.9).
+    _CACHED_CONF: float = 0.10
+
+    def __init__(self, max_age: int = 30, decay_floor: float = 0.05) -> None:
+        """
+        Parameters
+        ----------
+        max_age:
+            Number of frames a cached entry is replayed before expiring.
+            Must be a positive integer.
+        decay_floor:
+            Minimum confidence value produced by the linear decay.
+            The confidence of a cached entry decays from the original
+            detection confidence toward this value over ``max_age`` frames.
+        """
+        if max_age < 1:
+            raise ValueError(f"max_age must be >= 1, got {max_age!r}")
+        self._max_age    = max_age
+        self._decay_floor = float(decay_floor)
+        # {student_id: {"behavior": str, "confidence": float, "age": int}}
+        self._entries: dict[int, dict[str, Any]] = {}
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def apply(self, students: list[dict[str, Any]]) -> None:
+        """
+        Fill missing behaviors from the cache (mutates student records).
+
+        Students that already have a live behavior (``behavior is not None``
+        and ``confidence > 0``) are **not** overwritten.
+        """
+        for student in students:
+            if student["behavior"] is not None:
+                continue  # live detection takes priority
+
+            sid = int(student["id"])
+            entry = self._entries.get(sid)
+            if entry is None or entry["age"] >= self._max_age:
+                continue
+
+            # Linear decay: confidence drops from original → decay_floor
+            # over max_age frames.
+            age_fraction = entry["age"] / self._max_age
+            decayed_conf = (
+                entry["confidence"] * (1.0 - age_fraction)
+                + self._decay_floor * age_fraction
+            )
+
+            student["behavior"]   = entry["behavior"]
+            student["confidence"] = decayed_conf
+            student["from_cache"] = True  # optional diagnostic key
+
+    def update(self, students: list[dict[str, Any]]) -> None:
+        """
+        Write live detections back to the cache and age existing entries.
+
+        Must be called **after** ``apply`` and after the frame's student
+        records have been fully populated.
+        """
+        live_ids: set[int] = set()
+
+        for student in students:
+            if student["behavior"] is None:
+                continue
+            if student.get("from_cache"):
+                continue  # don't update the cache from its own replayed label
+
+            sid = int(student["id"])
+            live_ids.add(sid)
+            self._entries[sid] = {
+                "behavior":   student["behavior"],
+                "confidence": student["confidence"],
+                "age":        0,
+            }
+
+        # Age non-live entries; entries from this frame stay at age=0
+        for sid, entry in list(self._entries.items()):
+            if sid not in live_ids:
+                entry["age"] += 1
+                if entry["age"] >= self._max_age:
+                    del self._entries[sid]
+
+    def clear(self) -> None:
+        """Reset the cache (e.g. when re-opening a video)."""
+        self._entries.clear()

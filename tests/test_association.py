@@ -261,3 +261,226 @@ def test_build_student_records_empty_when_no_ids():
     mock_result.boxes.id = None
     records = build_student_records(mock_result)
     assert records == []
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# BehaviorCache
+# ──────────────────────────────────────────────────────────────────────────────
+
+from src.association import BehaviorCache
+
+
+def _make_student(sid: int, behavior=None, confidence: float = 0.0) -> dict:
+    return {"id": sid, "box": [0, 0, 100, 100], "behavior": behavior,
+            "confidence": confidence}
+
+
+def test_behavior_cache_fills_unknown_students():
+    """Cache should replay last known behavior when student has no live det."""
+    cache = BehaviorCache(max_age=5)
+
+    # Frame A: student 1 has a live detection
+    frame_a = [_make_student(1, "write", 0.8)]
+    cache.apply(frame_a)   # nothing in cache yet
+    cache.update(frame_a)  # store "write" for id=1
+
+    # Frame B: student 1 has no detection (behavior=None)
+    frame_b = [_make_student(1)]
+    cache.apply(frame_b)  # should fill from cache
+    assert frame_b[0]["behavior"] == "write"
+    assert frame_b[0].get("from_cache") is True
+
+
+def test_behavior_cache_live_detection_takes_priority():
+    """A live detection must NOT be overwritten by cached data."""
+    cache = BehaviorCache(max_age=5)
+
+    # Seed cache with "write"
+    seed = [_make_student(1, "write", 0.8)]
+    cache.apply(seed)
+    cache.update(seed)
+
+    # Next frame: live detection says "read"
+    live = [_make_student(1, "read", 0.9)]
+    cache.apply(live)   # cache should NOT overwrite live "read"
+    assert live[0]["behavior"] == "read"
+    assert live[0].get("from_cache") is None
+
+
+def test_behavior_cache_expires_after_max_age():
+    """Cached entry should expire after max_age updates with no live detection."""
+    max_age = 3
+    cache = BehaviorCache(max_age=max_age)
+
+    # Seed the cache
+    seed = [_make_student(1, "sleep", 0.7)]
+    cache.apply(seed)
+    cache.update(seed)
+
+    # Run max_age frames with no live detection for student 1
+    for _ in range(max_age):
+        frame = [_make_student(1)]
+        cache.apply(frame)
+        cache.update(frame)
+
+    # Now the cache entry should have expired
+    final = [_make_student(1)]
+    cache.apply(final)
+    assert final[0]["behavior"] is None, "Cache should have expired"
+
+
+def test_behavior_cache_confidence_decays():
+    """Confidence should decrease linearly from original to decay_floor."""
+    max_age = 10
+    decay_floor = 0.05
+    cache = BehaviorCache(max_age=max_age, decay_floor=decay_floor)
+
+    original_conf = 0.80
+
+    # Seed the cache (entry stored at age=0)
+    seed = [_make_student(1, "read", original_conf)]
+    cache.apply(seed)
+    cache.update(seed)
+
+    # Frame 1: entry is at age=0 when apply is called → decay_fraction=0/10=0
+    # After update, age increments to 1 (student has from_cache=True so not live)
+    frame1 = [_make_student(1)]
+    cache.apply(frame1)
+    # At age=0: decayed_conf = 0.80*(1-0) + 0.05*0 = 0.80
+    assert frame1[0]["behavior"] == "read"
+    assert abs(frame1[0]["confidence"] - original_conf) < 1e-9, \
+        f"Age=0 should give original confidence, got {frame1[0]['confidence']}"
+    cache.update(frame1)
+
+    # Frame 2: entry is at age=1 when apply is called → decay_fraction=1/10
+    frame2 = [_make_student(1)]
+    cache.apply(frame2)
+    expected = original_conf * (1 - 1 / max_age) + decay_floor * (1 / max_age)
+    assert frame2[0]["behavior"] == "read"
+    assert abs(frame2[0]["confidence"] - expected) < 1e-9, \
+        f"Age=1 expected {expected:.6f}, got {frame2[0]['confidence']:.6f}"
+    cache.update(frame2)
+
+    # Frame 3: entry is at age=2 → decay_fraction=2/10
+    frame3 = [_make_student(1)]
+    cache.apply(frame3)
+    expected3 = original_conf * (1 - 2 / max_age) + decay_floor * (2 / max_age)
+    assert frame3[0]["behavior"] == "read"
+    assert abs(frame3[0]["confidence"] - expected3) < 1e-9, \
+        f"Age=2 expected {expected3:.6f}, got {frame3[0]['confidence']:.6f}"
+
+
+def test_behavior_cache_does_not_write_cached_label_to_cache():
+    """Replayed cached labels must NOT refresh the cache entry (age must still increment)."""
+    max_age = 3
+    cache = BehaviorCache(max_age=max_age)
+
+    seed = [_make_student(1, "write", 0.7)]
+    cache.apply(seed)
+    cache.update(seed)
+
+    # Frame 1: no live detection, cache replays
+    f1 = [_make_student(1)]
+    cache.apply(f1)
+    assert f1[0]["behavior"] == "write"
+    cache.update(f1)
+
+    # Frame 2: no live detection, cache replays (age should now be 2)
+    f2 = [_make_student(1)]
+    cache.apply(f2)
+    assert f2[0]["behavior"] == "write"
+    cache.update(f2)
+
+    # Frame 3: age reaches max_age → entry should expire
+    f3 = [_make_student(1)]
+    cache.apply(f3)
+    cache.update(f3)
+
+    f_after_expire = [_make_student(1)]
+    cache.apply(f_after_expire)
+    assert f_after_expire[0]["behavior"] is None, \
+        "Cache should have expired after max_age frames without live detection"
+
+
+def test_behavior_cache_clear_removes_all_entries():
+    """clear() should reset all stored cache entries."""
+    cache = BehaviorCache(max_age=10)
+
+    seed = [_make_student(1, "handrise", 0.6)]
+    cache.apply(seed)
+    cache.update(seed)
+
+    cache.clear()
+
+    frame = [_make_student(1)]
+    cache.apply(frame)
+    assert frame[0]["behavior"] is None
+
+
+def test_behavior_cache_invalid_max_age():
+    """max_age < 1 must raise ValueError."""
+    with pytest.raises(ValueError):
+        BehaviorCache(max_age=0)
+
+    with pytest.raises(ValueError):
+        BehaviorCache(max_age=-5)
+
+
+def test_behavior_cache_multiple_students_independent():
+    """Cache entries for different student IDs must be fully independent."""
+    cache = BehaviorCache(max_age=5)
+
+    # Student 1 has a live detection, student 2 does not
+    frame_a = [
+        _make_student(1, "write", 0.8),
+        _make_student(2, "sleep", 0.6),
+    ]
+    cache.apply(frame_a)
+    cache.update(frame_a)
+
+    # Next frame: only student 1 has a live detection
+    frame_b = [
+        _make_student(1, "read", 0.9),  # new live detection
+        _make_student(2),               # no detection
+    ]
+    cache.apply(frame_b)
+
+    assert frame_b[0]["behavior"] == "read"          # live takes priority
+    assert frame_b[0].get("from_cache") is None
+    assert frame_b[1]["behavior"] == "sleep"         # replayed from cache
+    assert frame_b[1].get("from_cache") is True
+
+
+def test_behavior_cache_full_pipeline_sequence():
+    """
+    Simulate the full per-frame pattern:
+      assign_behaviors_to_students → cache.apply → cache.update
+
+    Verifies that students without a live detection in frames 2-3 get the
+    label carried from frame 1.
+    """
+    cache = BehaviorCache(max_age=10)
+    names = {0: "write", 1: "sleep"}
+
+    # Frame 1: student 1 has a detection
+    s1 = [_make_student(1)]
+    assign_behaviors_to_students(s1, [[10, 10, 30, 30]], [0], [0.75], names)
+    cache.apply(s1)
+    cache.update(s1)
+    assert s1[0]["behavior"] == "write"
+
+    # Frame 2: no live detection for student 1
+    s2 = [_make_student(1)]
+    assign_behaviors_to_students(s2, [], [], [], names)
+    cache.apply(s2)
+    assert s2[0]["behavior"] == "write"
+    assert s2[0].get("from_cache") is True
+    cache.update(s2)
+
+    # Frame 3: live detection overrides cache
+    s3 = [_make_student(1)]
+    assign_behaviors_to_students(s3, [[10, 10, 30, 30]], [1], [0.85], names)
+    cache.apply(s3)
+    assert s3[0]["behavior"] == "sleep"   # live detection wins
+    assert s3[0].get("from_cache") is None
+    cache.update(s3)

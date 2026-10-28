@@ -8,65 +8,76 @@
 #   src/realtime_behavior.py  — webcam inference with central configuration
 #   src/classroom_tracking.py — person tracking + behavior association
 #
-# Kept for reference only.  Do not modify.
-from ultralytics import YOLO
+# Kept as a separate reference demo; its camera/model work is guarded below.
+from pathlib import Path
+
 import cv2
 import torch
+from ultralytics import YOLO
 
-# Check device
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Running on: {device}")
+PROJECT_ROOT = Path(__file__).resolve().parent
 
-if device == "cuda":
-    print(f"GPU: {torch.cuda.get_device_name(0)}")
 
-# Load YOLO model
-model = YOLO("yolo11n.pt")
+def main() -> int:
+    # Check device
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Running on: {device}")
 
-# Open webcam
-cap = cv2.VideoCapture(0)
+    if device == "cuda":
+        print(f"GPU: {torch.cuda.get_device_name(0)}")
 
-if not cap.isOpened():
-    print("ERROR: Could not open camera.")
-    exit()
+    # Load the same local pretrained model, independent of the shell directory.
+    model = YOLO(str(PROJECT_ROOT / "yolo11n.pt"))
+    cap = cv2.VideoCapture(0)
 
-while True:
-    ret, frame = cap.read()
+    try:
+        if not cap.isOpened():
+            print("ERROR: Could not open camera.")
+            return 1
 
-    if not ret:
-        print("ERROR: Could not read camera.")
-        break
+        while True:
+            ret, frame = cap.read()
 
-    # Run YOLO
-    results = model(
-        frame,
-        device=device,
-        classes=[0],       # class 0 = person
-        conf=0.40,
-        verbose=False
-    )
+            if not ret:
+                print("ERROR: Could not read camera.")
+                break
 
-    # Draw detections
-    annotated_frame = results[0].plot()
+            # Run YOLO
+            results = model(
+                frame,
+                device=device,
+                classes=[0],       # class 0 = person
+                conf=0.40,
+                verbose=False
+            )
 
-    # Count detected people
-    person_count = len(results[0].boxes)
+            # Draw detections
+            annotated_frame = results[0].plot()
 
-    cv2.putText(
-        annotated_frame,
-        f"Students Detected: {person_count}",
-        (20, 40),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 0),
-        2
-    )
+            # Count detected people
+            person_count = len(results[0].boxes)
 
-    cv2.imshow("VisionClass - Student Detection", annotated_frame)
+            cv2.putText(
+                annotated_frame,
+                f"Students Detected: {person_count}",
+                (20, 40),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 255, 0),
+                2
+            )
 
-    # Press Q to quit
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
+            cv2.imshow("VisionClass - Student Detection", annotated_frame)
 
-cap.release()
-cv2.destroyAllWindows()
+            # Press Q to quit
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

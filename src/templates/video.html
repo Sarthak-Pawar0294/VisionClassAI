@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% set active_page = 'video' %}
+{% block title %}Video analysis · VisionClass{% endblock %}
+{% block content %}
+<section class="page-heading"><div><p class="eyebrow">VIDEO WORKFLOW</p><h1>Analyze a recording</h1><p class="muted">Upload a local video for tracked behavior history, an annotated preview, and run-scoped reports.</p></div><div class="session-pill"><span class="status-dot good"></span><span>Local processing</span></div></section>
+<div class="video-grid">
+  <section class="panel upload-panel"><div class="panel-heading"><div><p class="eyebrow">NEW ANALYSIS</p><h2>Choose a video</h2></div><span class="upload-symbol" aria-hidden="true">↑</span></div>
+    <form id="upload-form">
+      <label class="dropzone" for="video-file"><span class="upload-art" aria-hidden="true">⇧</span><strong>Choose a video from this device</strong><span>MP4, AVI, MOV, or MKV · maximum 1 GiB</span><span class="file-name" id="file-name">No file selected</span></label>
+      <input id="video-file" name="video" type="file" accept=".mp4,.avi,.mov,.mkv,video/mp4,video/x-msvideo,video/quicktime,video/x-matroska" required>
+      <div class="upload-meta"><span>Processed locally on this computer</span><span>Runs are retained until manually removed</span></div>
+      <button class="button button-primary" id="upload-button" type="submit">Upload and analyze <span aria-hidden="true">→</span></button>
+    </form>
+    <div class="progress-section" id="progress-section" hidden>
+      <div class="progress-heading"><strong id="progress-label">Preparing upload</strong><span id="progress-value">0%</span></div><progress id="upload-progress" value="0" max="100">0%</progress><p class="muted small" id="progress-detail" role="status" aria-live="polite"></p><button type="button" class="button button-secondary" id="cancel-button" hidden>Cancel processing</button>
+    </div>
+    <div class="error-card" id="upload-error" role="alert" hidden></div>
+  </section>
+  <section class="panel video-result" id="video-result"><div class="panel-heading"><div><p class="eyebrow">RUN OUTPUT</p><h2 id="result-title">Your analysis will appear here</h2></div><span class="connection-chip" id="run-status">No active run</span></div>
+    <div class="video-player-wrap" id="video-player-wrap"><div class="player-placeholder"><span aria-hidden="true">▶</span><strong>Annotated video preview</strong><span>After processing, playback is available from this run.</span></div></div><p class="playback-status" id="playback-status" role="status" aria-live="polite">Output is not finalized yet.</p>
+    <div class="artifact-list" id="artifact-list"></div><div id="optional-errors" class="inline-notice" hidden></div>
+  </section>
+</div>
+<section class="panel workflow-note"><div class="timeline-mark" aria-hidden="true">i</div><div><h2>How runs work</h2><p class="muted">One webcam or video job runs at a time. Video uploads are checked by the installed OpenCV decoder before inference. Outputs are stored in unique folders under <code>data/visionclass_runs/</code>; no automatic retention cleanup is performed.</p></div></section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/video.js') }}" defer></script>{% endblock %}

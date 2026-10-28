@@ -8,64 +8,70 @@
 import cv2
 import mediapipe as mp
 
-mp_face_mesh = mp.solutions.face_mesh
-mp_pose = mp.solutions.pose
+def main():
+    mp_face_mesh = mp.solutions.face_mesh
+    mp_pose = mp.solutions.pose
 
-face_mesh = mp_face_mesh.FaceMesh(
-    max_num_faces=5,
-    refine_landmarks=True,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
-)
-
-pose = mp_pose.Pose(
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
-)
-
-face_drawing = mp.solutions.drawing_utils
-pose_drawing = mp.solutions.drawing_utils
-
-cap = cv2.VideoCapture(0)
-
-while True:
-
-    ret, frame = cap.read()
-
-    if not ret:
-        break
-
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-    # Face detection / landmarks
-    face_results = face_mesh.process(rgb)
-
-    # Pose detection
-    pose_results = pose.process(rgb)
-
-    # Draw face landmarks
-    if face_results.multi_face_landmarks:
-        for face_landmarks in face_results.multi_face_landmarks:
-            face_drawing.draw_landmarks(
-                frame,
-                face_landmarks,
-                mp_face_mesh.FACEMESH_TESSELATION
-            )
-
-    # Draw pose landmarks
-    if pose_results.pose_landmarks:
-        pose_drawing.draw_landmarks(
-            frame,
-            pose_results.pose_landmarks,
-            mp_pose.POSE_CONNECTIONS
+    face_mesh = mp_face_mesh.FaceMesh(
+        max_num_faces=5,
+        refine_landmarks=True,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5
+    )
+    pose = None
+    cap = None
+    try:
+        pose = mp_pose.Pose(
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
         )
+        face_drawing = mp.solutions.drawing_utils
+        pose_drawing = mp.solutions.drawing_utils
+        cap = cv2.VideoCapture(0)
 
-    cv2.imshow("VisionClass - Face + Pose", frame)
+        while True:
+            ret, frame = cap.read()
 
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
+            if not ret:
+                break
 
-cap.release()
-cv2.destroyAllWindows()
-face_mesh.close()
-pose.close()
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            # Face detection / landmarks
+            face_results = face_mesh.process(rgb)
+
+            # Pose detection
+            pose_results = pose.process(rgb)
+
+            # Draw face landmarks
+            if face_results.multi_face_landmarks:
+                for face_landmarks in face_results.multi_face_landmarks:
+                    face_drawing.draw_landmarks(
+                        frame,
+                        face_landmarks,
+                        mp_face_mesh.FACEMESH_TESSELATION
+                    )
+
+            # Draw pose landmarks
+            if pose_results.pose_landmarks:
+                pose_drawing.draw_landmarks(
+                    frame,
+                    pose_results.pose_landmarks,
+                    mp_pose.POSE_CONNECTIONS
+                )
+
+            cv2.imshow("VisionClass - Face + Pose", frame)
+
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+    finally:
+        if cap is not None:
+            cap.release()
+        cv2.destroyAllWindows()
+        if pose is not None:
+            pose.close()
+        face_mesh.close()
+
+
+if __name__ == "__main__":
+    main()

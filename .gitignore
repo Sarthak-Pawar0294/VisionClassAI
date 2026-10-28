@@ -18,6 +18,19 @@ build/
 .idea/
 .vscode/
 *.swp
+Ultralytics/settings.json
+
+# Local environment files (keep the documented, secret-free example)
+.env
+.env.*
+!.env.example
+
+# Python test/analysis caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # Ultralytics training outputs (regeneratable)
 runs/
@@ -27,6 +40,41 @@ data/videos/
 *.mp4
 *.avi
 *.mkv
+*.mov
+
+# Local archives frequently contain multi-gigabyte datasets or model weights.
+*.zip
+
+# Dataset image and label payloads are obtained separately; keep YAML, notes,
+# and audit/cleaning utilities available as source.
+datasets/**/images/
+datasets/**/labels/
+datasets/**/BAD_*.jpg
+datasets/**/labels.cache
+class_samples/
+project_tree.txt
+
+# Generated, user-specific VisionClass evidence and run outputs
+data/diagnostics/
+data/long_validation/
+data/visionclass_runs/
+data/project_screenshots/
+data/phase6_annotation/contact_sheets/
+data/phase6_annotation/train/images/
+data/phase6_annotation/train/labels/
+data/phase6_annotation/val/images/
+data/phase6_annotation/val/labels/
+data/*_report.md
+data/*_plan.md
+data/*_summary.md
+data/*_summary.csv
+data/*_dashboard.html
+data/*_history.csv
+data/dashboard_data.json
+
+# Local logs and transient files
+*.log
+*.tmp
 
 # Trained weights (large; copy locally or use release assets)
 *.pt

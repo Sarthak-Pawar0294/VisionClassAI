@@ -1,0 +1,7 @@
+# Optional standalone MediaPipe webcam demo dependencies.
+# Install in a separate Python environment from requirements.txt because
+# MediaPipe requires opencv-contrib-python while Ultralytics requires
+# opencv-python; both distributions install the same cv2 namespace.
+opencv-contrib-python==4.11.0.86
+mediapipe==0.10.21
+numpy==1.26.4

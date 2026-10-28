@@ -36,6 +36,21 @@ def test_webcam_index_from_env(monkeypatch):
     assert settings.webcam_index == 2
 
 
+def test_dataset_yaml_defaults_to_canonical_dataset():
+    settings = get_settings()
+    assert settings.dataset_yaml == (
+        PROJECT_ROOT / "datasets" / "student_classroom_behavior" / "data.yaml"
+    )
+    assert settings.dataset_yaml.is_file()
+
+
+def test_dataset_yaml_from_env(monkeypatch, tmp_path):
+    dataset_yaml = tmp_path / "custom-data.yaml"
+    monkeypatch.setenv("VISIONCLASS_DATASET_YAML", str(dataset_yaml))
+    settings = get_settings()
+    assert settings.dataset_yaml == dataset_yaml.resolve()
+
+
 def test_behavior_model_discovery_finds_existing_best_pt():
     """Auto-discovery must resolve to a best.pt that actually exists on disk."""
     settings = get_settings()
@@ -108,6 +123,20 @@ def test_inference_imgsz_default_is_960():
     assert settings.inference_imgsz == 960
 
 
+def test_evaluation_imgsz_defaults_to_configured_inference_size():
+    from src.evaluate_behavior import _resolve_evaluation_imgsz
+
+    settings = get_settings()
+    assert _resolve_evaluation_imgsz(None, settings.inference_imgsz) == 960
+
+
+def test_evaluation_imgsz_explicit_override_is_preserved():
+    from src.evaluate_behavior import _resolve_evaluation_imgsz
+
+    settings = get_settings()
+    assert _resolve_evaluation_imgsz(640, settings.inference_imgsz) == 640
+
+
 def test_project_local_tracker_config():
     """Verify that the tracker defaults to the project-local config/bytetrack.yaml."""
     settings = get_settings()
@@ -126,5 +155,3 @@ def test_tracker_config_has_buffer_60():
     
     assert tracker_cfg.get("track_buffer") == 60, "track_buffer must be exactly 60"
     assert tracker_cfg.get("tracker_type") == "bytetrack"
-
-

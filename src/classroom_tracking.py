@@ -8,7 +8,7 @@ if str(_ROOT) not in sys.path:
 import cv2
 from ultralytics import YOLO
 
-from src.association import assign_behaviors_to_students, build_student_records
+from src.association import assign_behaviors_to_students, build_student_records, BehaviorCache
 from src.config import get_settings
 
 
@@ -46,6 +46,8 @@ def main(device_spec: str | None = None) -> None:
     print(f"Device: {settings.device}")
     print("Processing video...")
     print("Press Q to stop early.")
+
+    behavior_cache = BehaviorCache(max_age=30)
 
     frame_number = 0
 
@@ -89,41 +91,43 @@ def main(device_spec: str | None = None) -> None:
                 behavior_model.names,
             )
 
+        # Fill gaps: replay last-known behavior for students with no live det.
+        # apply() must come before update() so cached labels are not written
+        # back into the cache as if they were live detections.
+        behavior_cache.apply(students)
+        behavior_cache.update(students)
+
         annotated = frame.copy()
 
         for student in students:
             x1, y1, x2, y2 = map(int, student["box"])
-
             student_id = student["id"]
-            behavior = student["behavior"]
+            behavior = student["behavior"] or "unknown"
             confidence = student["confidence"]
+            is_cached = bool(student.get("from_cache", False))
 
-            if behavior is not None:
-                label = (
-                    f"Student {student_id}: "
-                    f"{behavior} "
-                    f"{confidence:.2f}"
-                )
+            if behavior == "unknown":
+                label = f"S{student_id}: unknown"
+                color = (150, 150, 150) # Gray
             else:
-                label = f"Student {student_id}: unknown"
+                suffix = " [~]" if is_cached else ""
+                label = f"S{student_id}: {behavior} {confidence:.2f}{suffix}"
+                color = (255, 200, 50) if is_cached else (50, 255, 50) # Blue-ish if cached, Green if live
 
-            cv2.rectangle(
-                annotated,
-                (x1, y1),
-                (x2, y2),
-                (255, 255, 255),
-                2,
-            )
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
 
-            cv2.putText(
-                annotated,
-                label,
-                (x1, max(y1 - 10, 20)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.55,
-                (255, 255, 255),
-                2,
-            )
+            font_scale = 0.5
+            thickness = 1
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            (text_w, text_h), baseline = cv2.getTextSize(label, font, font_scale, thickness)
+
+            # Make sure label is inside image bounds
+            if y1 - text_h - baseline < 0:
+                cv2.rectangle(annotated, (x1, y1), (x1 + text_w, y1 + text_h + baseline), color, -1)
+                cv2.putText(annotated, label, (x1, y1 + text_h), font, font_scale, (0, 0, 0), thickness)
+            else:
+                cv2.rectangle(annotated, (x1, y1 - text_h - baseline), (x1 + text_w, y1), color, -1)
+                cv2.putText(annotated, label, (x1, y1 - baseline), font, font_scale, (0, 0, 0), thickness)
 
         out.write(annotated)
 

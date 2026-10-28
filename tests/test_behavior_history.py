@@ -62,6 +62,7 @@ def _make_record(
     student_id: int = 1,
     behavior: str = "write",
     confidence: float = 0.5,
+    is_cached: bool = False,
 ) -> dict:
     fps = 20.0
     unknown_cause = "no_match" if behavior == "unknown" else ""
@@ -71,6 +72,7 @@ def _make_record(
         "student_id": student_id,
         "behavior": behavior,
         "confidence": round(confidence, 4),
+        "is_cached": str(is_cached).lower(),
         "unknown_cause": unknown_cause,
     }
 

@@ -149,7 +149,7 @@ def get_settings(
         if dataset_yaml
         else _path_from_env(
             "VISIONCLASS_DATASET_YAML",
-            root / "data" / "dataset" / "data.yaml",
+            root / "datasets" / "student_classroom_behavior" / "data.yaml",
         ),
         video_path=_path_from_env(
             "VISIONCLASS_VIDEO",
